@@ -1,0 +1,33 @@
+Source: rhino
+Section: interpreters
+Priority: optional
+Maintainer: Debian Java Maintainers <pkg-java-maintainers@lists.alioth.debian.org>
+Uploaders: Paul Cager <paul-debian@home.paulcager.org>,
+  Marcus Better <marcus@better.se>, Michael Koch <konqueror@gmx.de>, Damien Raude-Morvan <drazzib@debian.org>
+Build-Depends: debhelper (>= 7), cdbs, ant, default-jdk, quilt, maven-repo-helper, libxmlbeans-java
+Standards-Version: 3.8.4
+Homepage: http://www.mozilla.org/rhino/
+Vcs-Svn: svn://svn.debian.org/pkg-java/trunk/rhino/
+Vcs-Browser: http://svn.debian.org/wsvn/pkg-java/trunk/rhino/
+
+Package: rhino
+Architecture: all
+Depends: ${misc:Depends}, default-jre-headless (>= 1.5) | java5-runtime-headless, libjline-java
+Suggests: rhino-doc
+Description: JavaScript engine written in Java
+ Rhino is an implementation of the JavaScript language written
+ entirely in Java. It is typically embedded into Java applications to
+ provide scripting to end users.
+
+Package: rhino-doc
+Section: doc
+Architecture: all
+Depends: ${misc:Depends}
+Suggests: rhino
+Description: Documentation for rhino Java Script Engine
+ Rhino is an implementation of the JavaScript language written
+ entirely in Java. It is typically embedded into Java applications to
+ provide scripting to end users.
+ .
+ This is the documentation, including API JavaDoc, for the Rhino
+ JavaScript engine.
