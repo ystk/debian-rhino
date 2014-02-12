@@ -169,7 +169,8 @@ class XMLList extends XMLObjectImpl implements Function {
             // Secret sauce for super-expandos.
             // We set an element here, and then add ourselves to our target.
             if (targetObject != null && targetProperty != null &&
-                targetProperty.getLocalName() != null)
+                targetProperty.getLocalName() != null &&
+                targetProperty.getLocalName().length() > 0)
             {
                 // Add an empty element with our targetProperty name and 
                 // then set it.
@@ -203,6 +204,16 @@ class XMLList extends XMLObjectImpl implements Function {
 
             // Update the list with the new item at location 0.
             replace(0, item(0));
+            
+            if (targetObject != null && targetProperty != null &&
+                targetProperty.getLocalName() != null)
+            {
+                // Now add us to our parent
+                XMLName name2 = XMLName.formProperty(
+                        targetProperty.getNamespace().getUri(),
+                        targetProperty.getLocalName());
+                targetObject.putXMLProperty(name2, this);
+            }
         }
     }
 
@@ -239,16 +250,24 @@ class XMLList extends XMLObjectImpl implements Function {
                 //    There may well be a better way to do this
                 //    TODO    Find a way to refactor this whole method and simplify it
                 xmlValue = item(index);
+                if (xmlValue == null) {
+                    XML x = item(0);
+                    xmlValue = x == null
+                        ? newTextElementXML(null,targetProperty,null)
+                        : x.copy();
+                }
                 ((XML)xmlValue).setChildren(value);
             }
         }
 
         // Find the parent
         if (index < length()) {
-            parent = item(index).parent();
+          parent = item(index).parent();
+        } else if (length() == 0) {
+          parent = targetObject != null ? targetObject.getXML() : parent();
         } else {
-            // Appending
-            parent = parent();
+          // Appending
+          parent = parent();
         }
 
         if (parent instanceof XML) {
@@ -350,7 +369,7 @@ class XMLList extends XMLObjectImpl implements Function {
             enumObjs = new Object[length()];
 
             for (int i = 0; i < enumObjs.length; i++) {
-                enumObjs[i] = new Integer(i);
+                enumObjs[i] = Integer.valueOf(i);
             }
         }
 
@@ -433,14 +452,11 @@ class XMLList extends XMLObjectImpl implements Function {
             XML xml = getXmlFromAnnotation(i);
 
             if (xml != null) {
-                Object o = xml.children();
-                if (o instanceof XMLList) {
-                    XMLList childList = (XMLList)o;
+                XMLList childList = xml.children();
 
-                    int cChildren = childList.length();
-                    for (int j = 0; j < cChildren; j++) {
-                        list.add(childList.item(j));
-                    }
+                int cChildren = childList.length();
+                for (int j = 0; j < cChildren; j++) {
+                    list.add(childList.item(j));
                 }
             }
         }

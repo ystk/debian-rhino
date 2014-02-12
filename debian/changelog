@@ -1,3 +1,76 @@
+rhino (1.7R3-5) unstable; urgency=low
+
+  [ Giovanni Mascellani ]
+  * Making getSourcePositionFromStack public (used by geogebra).
+    Closes: #659619.
+
+  [ Damien Raude-Morvan ]
+  * Upload to unstable.
+  * Remove Michael Koch from Uploaders (Closes: #654130).
+  * d/control: Wrap-and-sort
+
+ -- Damien Raude-Morvan <drazzib@debian.org>  Mon, 13 Feb 2012 23:52:51 +0100
+
+rhino (1.7R3-4) unstable; urgency=low
+
+  * Add OSGi metadata to jar manifest
+  * Add javahelper to Build-Depends:
+  * Add Jakub Adam to Uploaders:
+
+ -- Jakub Adam <jakub.adam@ktknet.cz>  Wed, 23 Nov 2011 10:21:50 +0100
+
+rhino (1.7R3-3) unstable; urgency=low
+
+  * Since OpenJDK{6,7} now use a mangled version of Rhino
+    (in "sun.org.mozilla.rhino" package), there is no need to override
+    bootclasspath :
+    - Fix "Incorrect classpath prevents running on AMD64" (Closes: #649131)
+    - Fix "js: Error occurred during initialization ov VM" (Closes: #649281)
+
+ -- Damien Raude-Morvan <drazzib@debian.org>  Sun, 20 Nov 2011 12:15:19 +0100
+
+rhino (1.7R3-2) unstable; urgency=low
+
+  * Upload to unstable.
+
+ -- Damien Raude-Morvan <drazzib@debian.org>  Sun, 12 Jun 2011 21:56:54 +0200
+
+rhino (1.7R3-1) experimental; urgency=low
+
+  * New upstream release:
+    - Upstream changelog <https://developer.mozilla.org/en/New_in_Rhino_1.7R3>
+    - Refresh all patches.
+  * Bump Standards-Version to 3.9.2 (no changes needed).
+  * d/rules: replace "rm debian/tmp" by mh_clean call.
+
+ -- Damien Raude-Morvan <drazzib@debian.org>  Wed, 25 May 2011 23:43:56 +0200
+
+rhino (1.7R3~pre-2) experimental; urgency=low
+
+  * Fix parsing of command line arguments by using quotes.
+    Thanks to Chris Lamb and Chris West for bugreport and patch
+    (Closes: #609965).
+  * Update rhino packaging to follow latest Debian Java Policy:
+    - move javadoc to a librhino-java-doc package.
+    - make rhino-doc package an empty transitional package.
+    - move jar/pom to a librhino-java package (which doesn't depends
+      on any java runtime).
+    - keep rhino interpreter in his own rhino package with a depends
+      on java5-runtime.
+
+ -- Damien Raude-Morvan <drazzib@debian.org>  Sat, 12 Mar 2011 02:08:43 +0100
+
+rhino (1.7R3~pre-1) experimental; urgency=low
+
+  * New upstream snapshot of 1.7R3:
+    - Needed by OpenJDK7 >= b126
+    - d/patches/*: Refresh all patches
+    - d/rules: Force version installed by mh_* tools
+  * Bump Standards-Version to 3.9.1 (no changes needed)
+  * Switch to 3.0 (quilt) source format
+
+ -- Damien Raude-Morvan <drazzib@debian.org>  Mon, 24 Jan 2011 19:49:04 +0100
+
 rhino (1.7R2-4) unstable; urgency=low
 
   * Enable E4X support:

@@ -600,8 +600,14 @@ class XmlNode implements Serializable {
         private static final long serialVersionUID = 4073904386884677090L;
 
         static Namespace create(String prefix, String uri) {
-            if (prefix == null) throw new IllegalArgumentException("Empty string represents default namespace prefix");
-            if (uri == null) throw new IllegalArgumentException("Namespace may not lack a URI");
+            if (prefix == null) {
+                throw new IllegalArgumentException(
+                        "Empty string represents default namespace prefix");
+            }
+            if (uri == null) {
+                throw new IllegalArgumentException(
+                        "Namespace may not lack a URI");
+            }
             Namespace rv = new Namespace();
             rv.prefix = prefix;
             rv.uri = uri;
@@ -611,6 +617,12 @@ class XmlNode implements Serializable {
         static Namespace create(String uri) {
             Namespace rv = new Namespace();
             rv.uri = uri;
+            
+            // Avoid null prefix for "" namespace
+            if (uri.length() == 0) {
+                rv.prefix = "";
+            }
+
             return rv;
         }
 
@@ -712,10 +724,23 @@ class XmlNode implements Serializable {
             return equals(one.getUri(), two.getUri());
         }
 
-        final boolean isEqualTo(QName other) {
+        final boolean equals(QName other) {
             if (!namespacesEqual(this.namespace, other.namespace)) return false;
             if (!equals(this.localName, other.localName)) return false;
             return true;
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if(!(obj instanceof QName)) {
+                return false;
+            }
+            return equals((QName)obj);
+        }
+        
+        @Override
+        public int hashCode() {
+            return localName == null ? 0 : localName.hashCode();
         }
 
         void lookupPrefix(org.w3c.dom.Node node) {

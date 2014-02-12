@@ -44,7 +44,12 @@
 package org.mozilla.javascript.optimizer;
 
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.ast.FunctionNode;
+import org.mozilla.javascript.ast.Jump;
+import org.mozilla.javascript.ast.Name;
+import org.mozilla.javascript.ast.ScriptNode;
 import org.mozilla.classfile.*;
+
 import java.util.*;
 import java.lang.reflect.Constructor;
 
@@ -78,7 +83,7 @@ public class Codegen implements Evaluator
     }
 
     public Object compile(CompilerEnvirons compilerEnv,
-                          ScriptOrFnNode tree,
+                          ScriptNode tree,
                           String encodedSource,
                           boolean returnFunction)
     {
@@ -86,7 +91,16 @@ public class Codegen implements Evaluator
         synchronized (globalLock) {
             serial = ++globalSerialClassCounter;
         }
-        String mainClassName = "org.mozilla.javascript.gen.c"+serial;
+        
+        String baseName = "c";
+        if (tree.getSourceName().length() > 0) {
+          baseName = tree.getSourceName().replaceAll("\\W", "_");
+          if (!Character.isJavaIdentifierStart(baseName.charAt(0))) {
+            baseName = "_" + baseName;
+          }
+        }
+
+        String mainClassName = "org.mozilla.javascript.gen." + baseName + "_" + serial;
 
         byte[] mainClassBytes = compileToClassFile(compilerEnv, mainClassName,
                                                    tree, encodedSource,
@@ -105,7 +119,7 @@ public class Codegen implements Evaluator
             script = (Script)cl.newInstance();
         } catch (Exception ex) {
             throw new RuntimeException
-                ("Unable to instantiate compiled class:"+ex.toString());
+                ("Unable to instantiate compiled class:" + ex.toString());
         }
         return script;
     }
@@ -119,7 +133,7 @@ public class Codegen implements Evaluator
         NativeFunction f;
         try {
             Constructor<?>ctor = cl.getConstructors()[0];
-            Object[] initArgs = { scope, cx, new Integer(0) };
+            Object[] initArgs = { scope, cx, Integer.valueOf(0) };
             f = (NativeFunction)ctor.newInstance(initArgs);
         } catch (Exception ex) {
             throw new RuntimeException
@@ -156,7 +170,7 @@ public class Codegen implements Evaluator
 
     byte[] compileToClassFile(CompilerEnvirons compilerEnv,
                               String mainClassName,
-                              ScriptOrFnNode scriptOrFn,
+                              ScriptNode scriptOrFn,
                               String encodedSource,
                               boolean returnFunction)
     {
@@ -172,7 +186,7 @@ public class Codegen implements Evaluator
             scriptOrFn = scriptOrFn.getFunctionNode(0);
         }
 
-        initScriptOrFnNodesData(scriptOrFn);
+        initScriptNodesData(scriptOrFn);
 
         this.mainClassName = mainClassName;
         this.mainClassSignature
@@ -186,7 +200,7 @@ public class Codegen implements Evaluator
     }
     
     private RuntimeException reportClassFileFormatException(
-        ScriptOrFnNode scriptOrFn,
+        ScriptNode scriptOrFn,
         String message)
     {
         String msg = scriptOrFn instanceof FunctionNode
@@ -197,7 +211,7 @@ public class Codegen implements Evaluator
             scriptOrFn.getLineno(), null, 0);
     }
 
-    private void transform(ScriptOrFnNode tree)
+    private void transform(ScriptNode tree)
     {
         initOptFunctions_r(tree);
 
@@ -217,7 +231,7 @@ public class Codegen implements Evaluator
                     if (ofn.fnode.getFunctionType()
                         == FunctionNode.FUNCTION_STATEMENT)
                     {
-                        String name = ofn.fnode.getFunctionName();
+                        String name = ofn.fnode.getName();
                         if (name.length() != 0) {
                             if (possibleDirectCalls == null) {
                                 possibleDirectCalls = new HashMap<String,OptFunctionNode>();
@@ -242,7 +256,7 @@ public class Codegen implements Evaluator
         }
     }
 
-    private static void initOptFunctions_r(ScriptOrFnNode scriptOrFn)
+    private static void initOptFunctions_r(ScriptNode scriptOrFn)
     {
         for (int i = 0, N = scriptOrFn.getFunctionCount(); i != N; ++i) {
             FunctionNode fn = scriptOrFn.getFunctionNode(i);
@@ -251,13 +265,13 @@ public class Codegen implements Evaluator
         }
     }
 
-    private void initScriptOrFnNodesData(ScriptOrFnNode scriptOrFn)
+    private void initScriptNodesData(ScriptNode scriptOrFn)
     {
         ObjArray x = new ObjArray();
-        collectScriptOrFnNodes_r(scriptOrFn, x);
+        collectScriptNodes_r(scriptOrFn, x);
 
         int count = x.size();
-        scriptOrFnNodes = new ScriptOrFnNode[count];
+        scriptOrFnNodes = new ScriptNode[count];
         x.toArray(scriptOrFnNodes);
 
         scriptOrFnIndexes = new ObjToIntMap(count);
@@ -266,13 +280,13 @@ public class Codegen implements Evaluator
         }
     }
 
-    private static void collectScriptOrFnNodes_r(ScriptOrFnNode n,
+    private static void collectScriptNodes_r(ScriptNode n,
                                                  ObjArray x)
     {
         x.add(n);
         int nestedCount = n.getFunctionCount();
         for (int i = 0; i != nestedCount; ++i) {
-            collectScriptOrFnNodes_r(n.getFunctionNode(i), x);
+            collectScriptNodes_r(n.getFunctionNode(i), x);
         }
     }
 
@@ -314,7 +328,7 @@ public class Codegen implements Evaluator
 
         int count = scriptOrFnNodes.length;
         for (int i = 0; i != count; ++i) {
-            ScriptOrFnNode n = scriptOrFnNodes[i];
+            ScriptNode n = scriptOrFnNodes[i];
 
             BodyCodegen bodygen = new BodyCodegen();
             bodygen.cfw = cfw;
@@ -414,7 +428,7 @@ public class Codegen implements Evaluator
         cfw.stopMethod((short)(firstLocal + 1));
     }
 
-    static boolean isGenerator(ScriptOrFnNode node)
+    static boolean isGenerator(ScriptNode node)
     {
         return (node.getType() == Token.FUNCTION ) &&
                 ((FunctionNode)node).isGenerator();
@@ -469,7 +483,7 @@ public class Codegen implements Evaluator
         int endlabel = cfw.acquireLabel();
 
         for (int i = 0; i < scriptOrFnNodes.length; i++) {
-            ScriptOrFnNode n = scriptOrFnNodes[i];
+            ScriptNode n = scriptOrFnNodes[i];
             cfw.markTableSwitchCase(startSwitch, i, (short)6);
             if (isGenerator(n)) {
                 String type = "(" +
@@ -558,7 +572,7 @@ public class Codegen implements Evaluator
         }
 
         for (int i = 0; i != end; ++i) {
-            ScriptOrFnNode n = scriptOrFnNodes[i];
+            ScriptNode n = scriptOrFnNodes[i];
             if (generateSwitch) {
                 if (i == 0) {
                     cfw.markTableSwitchDefault(switchStart);
@@ -724,7 +738,7 @@ public class Codegen implements Evaluator
                 }
             }
             OptFunctionNode ofn = OptFunctionNode.get(scriptOrFnNodes[i]);
-            cfw.addInvoke(ByteCode.INVOKEVIRTUAL,
+            cfw.addInvoke(ByteCode.INVOKESPECIAL,
                           mainClassName,
                           getFunctionInitMethodName(ofn),
                           FUNCTION_INIT_SIGNATURE);
@@ -859,7 +873,7 @@ public class Codegen implements Evaluator
             }
 
             for (int i = 0; i != count; ++i) {
-                ScriptOrFnNode n = scriptOrFnNodes[i];
+                ScriptNode n = scriptOrFnNodes[i];
                 if (i == 0) {
                     if (count > 1) {
                         cfw.markTableSwitchDefault(switchStart);
@@ -877,7 +891,7 @@ public class Codegen implements Evaluator
                     if (n.getType() == Token.SCRIPT) {
                         cfw.addPush("");
                     } else {
-                        String name = ((FunctionNode)n).getFunctionName();
+                        String name = ((FunctionNode)n).getName();
                         cfw.addPush(name);
                     }
                     cfw.add(ByteCode.ARETURN);
@@ -1015,7 +1029,7 @@ public class Codegen implements Evaluator
         cfw.markLabel(doInit);
 
         for (int i = 0; i != scriptOrFnNodes.length; ++i) {
-            ScriptOrFnNode n = scriptOrFnNodes[i];
+            ScriptNode n = scriptOrFnNodes[i];
             int regCount = n.getRegexpCount();
             for (int j = 0; j != regCount; ++j) {
                 String reFieldName = getCompiledRegexpName(n, j);
@@ -1086,7 +1100,7 @@ public class Codegen implements Evaluator
         cfw.stopMethod((short)0);
     }
 
-    void pushRegExpArray(ClassFileWriter cfw, ScriptOrFnNode n,
+    void pushRegExpArray(ClassFileWriter cfw, ScriptNode n,
                          int contextArg, int scopeArg)
     {
         int regexpCount = n.getRegexpCount();
@@ -1217,7 +1231,7 @@ public class Codegen implements Evaluator
                 "instance", "Ljava/lang/Object;");
     }
 
-    int getIndex(ScriptOrFnNode n)
+    int getIndex(ScriptNode n)
     {
         return scriptOrFnIndexes.getExisting(n);
     }
@@ -1227,17 +1241,36 @@ public class Codegen implements Evaluator
         return "_dt" + i;
     }
 
-    String getDirectCtorName(ScriptOrFnNode n)
+    String getDirectCtorName(ScriptNode n)
     {
-        return "_n"+getIndex(n);
+        return "_n" + getIndex(n);
     }
 
-    String getBodyMethodName(ScriptOrFnNode n)
+    String getBodyMethodName(ScriptNode n)
     {
-        return "_c"+getIndex(n);
+        return "_c_" + cleanName(n) + "_" + getIndex(n);
     }
 
-    String getBodyMethodSignature(ScriptOrFnNode n)
+    /**
+     * Gets a Java-compatible "informative" name for the the ScriptOrFnNode
+     */
+    String cleanName(final ScriptNode n)
+    {
+      String result = "";
+      if (n instanceof FunctionNode) {
+        Name name = ((FunctionNode) n).getFunctionName();
+        if (name == null) {
+          result = "anonymous";
+        } else {
+          result = name.getIdentifier();
+        }
+      } else {
+        result = "script";
+      }
+      return result;
+    }
+
+    String getBodyMethodSignature(ScriptNode n)
     {
         StringBuffer sb = new StringBuffer();
         sb.append('(');
@@ -1263,7 +1296,7 @@ public class Codegen implements Evaluator
         return "_i"+getIndex(ofn.fnode);
     }
 
-    String getCompiledRegexpName(ScriptOrFnNode n, int regexpIndex)
+    String getCompiledRegexpName(ScriptNode n, int regexpIndex)
     {
         return "_re"+getIndex(n)+"_"+regexpIndex;
     }
@@ -1310,7 +1343,7 @@ public class Codegen implements Evaluator
     private CompilerEnvirons compilerEnv;
 
     private ObjArray directCallTargets;
-    ScriptOrFnNode[] scriptOrFnNodes;
+    ScriptNode[] scriptOrFnNodes;
     private ObjToIntMap scriptOrFnIndexes;
 
     private String mainMethodClass = DEFAULT_MAIN_METHOD_CLASS;
@@ -1587,7 +1620,7 @@ class BodyCodegen
                 epilogueLabel = cfw.acquireLabel();
             }
 
-            ArrayList<Node> targets = ((FunctionNode)scriptOrFn).getResumptionPoints();
+            List<Node> targets = ((FunctionNode)scriptOrFn).getResumptionPoints();
             if (targets != null) {
                 // get resumption point
                 generateGetGeneratorResumptionPoint();
@@ -1803,7 +1836,7 @@ class BodyCodegen
             // generate locals initialization
             Map<Node,int[]> liveLocals = ((FunctionNode)scriptOrFn).getLiveLocals();
             if (liveLocals != null) {
-                ArrayList<Node> nodes = ((FunctionNode)scriptOrFn).getResumptionPoints();
+                List<Node> nodes = ((FunctionNode)scriptOrFn).getResumptionPoints();
                 for (int i = 0; i < nodes.size(); i++) {
                     Node node = nodes.get(i);
                     int[] live = liveLocals.get(node);
@@ -1970,7 +2003,7 @@ class BodyCodegen
               }
 
               case Token.TRY:
-                visitTryCatchFinally((Node.Jump)node, child);
+                visitTryCatchFinally((Jump)node, child);
                 break;
 
               case Token.CATCH_SCOPE:
@@ -2045,7 +2078,7 @@ class BodyCodegen
               case Token.SWITCH:
                 if (compilerEnv.isGenerateObserverCount())
                     addInstructionCount();
-                visitSwitch((Node.Jump)node, child);
+                visitSwitch((Jump)node, child);
                 break;
 
               case Token.ENTERWITH:
@@ -2139,7 +2172,7 @@ class BodyCodegen
               case Token.IFNE:
                 if (compilerEnv.isGenerateObserverCount())
                     addInstructionCount(); 
-                visitGoto((Node.Jump)node, type, child);
+                visitGoto((Jump)node, type, child);
                 break;
 
               case Token.FINALLY:
@@ -2641,6 +2674,10 @@ class BodyCodegen
                 visitSetName(node, child);
                 break;
 
+              case Token.STRICT_SETNAME:
+                  visitStrictSetName(node, child);
+                  break;
+                  
               case Token.SETCONST:
                 visitSetConst(node, child);
                 break;
@@ -2787,6 +2824,7 @@ class BodyCodegen
                       case Token.REF_NS_NAME:
                         methodName = "nameRef";
                         signature = "(Ljava/lang/Object;"
+                                    +"Ljava/lang/Object;"
                                     +"Lorg/mozilla/javascript/Context;"
                                     +"Lorg/mozilla/javascript/Scriptable;"
                                     +"I"
@@ -3074,7 +3112,7 @@ class BodyCodegen
         return labelId;
     }
 
-    private void visitGoto(Node.Jump node, int type, Node child)
+    private void visitGoto(Jump node, int type, Node child)
     {
         Node target = node.target;
         if (type == Token.IFEQ || type == Token.IFNE) {
@@ -3668,7 +3706,7 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
         cfw.addLineNumberEntry((short)itsLineNumber);
     }
 
-    private void visitTryCatchFinally(Node.Jump node, Node child)
+    private void visitTryCatchFinally(Jump node, Node child)
     {
         /* Save the variable object, in case there are with statements
          * enclosed by the try block and we catch some exception.
@@ -3866,7 +3904,7 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
         return true;
     }
 
-    private void visitSwitch(Node.Jump switchNode, Node child)
+    private void visitSwitch(Jump switchNode, Node child)
     {
         // See comments in IRFactory.createSwitch() for description
         // of SWITCH node
@@ -3876,9 +3914,9 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
         short selector = getNewWordLocal();
         cfw.addAStore(selector);
 
-        for (Node.Jump caseNode = (Node.Jump)child.getNext();
+        for (Jump caseNode = (Jump)child.getNext();
              caseNode != null;
-             caseNode = (Node.Jump)caseNode.getNext())
+             caseNode = (Jump)caseNode.getNext())
         {
             if (caseNode.getType() != Token.CASE)
                 throw Codegen.badTree();
@@ -3952,9 +3990,10 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
      */
     private void addInstructionCount() {
         int count = cfw.getCurrentCodeOffset() - savedCodeOffset;
-        if (count == 0)
-            return;
-        addInstructionCount(count);
+        // TODO we used to return for count == 0 but that broke the following:
+        //    while(true) continue; (see bug 531600)
+        // To be safe, we now always count at least 1 instruction when invoked.
+        addInstructionCount(Math.max(count, 1));
     }
 
     /**
@@ -4441,6 +4480,26 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
         cfw.addPush(name);
         addScriptRuntimeInvoke(
             "setName",
+            "(Lorg/mozilla/javascript/Scriptable;"
+            +"Ljava/lang/Object;"
+            +"Lorg/mozilla/javascript/Context;"
+            +"Lorg/mozilla/javascript/Scriptable;"
+            +"Ljava/lang/String;"
+            +")Ljava/lang/Object;");
+    }
+
+    private void visitStrictSetName(Node node, Node child)
+    {
+        String name = node.getFirstChild().getString();
+        while (child != null) {
+            generateExpression(child, node);
+            child = child.getNext();
+        }
+        cfw.addALoad(contextLocal);
+        cfw.addALoad(variableObjectLocal);
+        cfw.addPush(name);
+        addScriptRuntimeInvoke(
+            "strictSetName",
             "(Lorg/mozilla/javascript/Scriptable;"
             +"Ljava/lang/Object;"
             +"Lorg/mozilla/javascript/Context;"
@@ -4999,7 +5058,7 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
     ClassFileWriter cfw;
     Codegen codegen;
     CompilerEnvirons compilerEnv;
-    ScriptOrFnNode scriptOrFn;
+    ScriptNode scriptOrFn;
     public int scriptOrFnIndex;
     private int savedCodeOffset;
 
@@ -5041,7 +5100,7 @@ Else pass the JS object in the aReg and 0.0 in the dReg.
 
     private Map<Node,FinallyReturnPoint> finallys;
 
-    class FinallyReturnPoint {
+    static class FinallyReturnPoint {
         public List<Integer> jsrPoints  = new ArrayList<Integer>();
         public int tableLabel = 0;        
     }

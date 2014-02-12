@@ -2,19 +2,19 @@ Description: Pass "nowarn" to javac ant task to disable printing of warning
  during compilation.
 --- a/src/build.xml
 +++ b/src/build.xml
-@@ -57,6 +57,7 @@
+@@ -62,6 +62,7 @@
+            includes="org/**/*.java"
+            excludes="org/**/jdk15/*.java"
+            deprecation="on"
++           nowarn="true"
             debug="${debug}"
-        target="${target-jvm}"
-        source="${source-level}"
-+       nowarn="true"
-        >
-     </javac>
-     <copy todir="${classes}">
-@@ -76,6 +77,7 @@
+            includeAntRuntime="false"
+            target="${target-jvm}"
+@@ -80,6 +81,7 @@
+            destdir="${classes}"
+            includes="org/**/jdk15/*.java"
+            deprecation="on"
++           nowarn="true"
             debug="${debug}"
-        target="${target-jvm}"
-        source="${source-level}"
-+       nowarn="true"
-        >
-     </javac>
-   </target>
+            includeAntRuntime="false"
+            target="${target-jvm}"

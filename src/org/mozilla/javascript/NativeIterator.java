@@ -163,8 +163,9 @@ public final class NativeIterator extends IdScriptableObject {
         if (args.length == 0 || args[0] == null || 
             args[0] == Undefined.instance)
         {
+            Object argument = args.length == 0 ? Undefined.instance : args[0];
             throw ScriptRuntime.typeError1("msg.no.properties", 
-                                           ScriptRuntime.toString(args[0]));
+                                           ScriptRuntime.toString(argument));
         }
         Scriptable obj = ScriptRuntime.toObject(scope, args[0]);
         boolean keyOnly = args.length > 1 && ScriptRuntime.toBoolean(args[1]);
@@ -198,7 +199,7 @@ public final class NativeIterator extends IdScriptableObject {
                     : ScriptRuntime.ENUMERATE_ARRAY_NO_ITERATOR);
         ScriptRuntime.setEnumNumbers(objectIterator, true);
         NativeIterator result = new NativeIterator(objectIterator);
-        result.setPrototype(NativeIterator.getClassPrototype(scope, 
+        result.setPrototype(ScriptableObject.getClassPrototype(scope, 
                                 result.getClassName()));
         result.setParentScope(scope);
         return result;
