@@ -115,19 +115,21 @@ public class NativeJavaClass extends NativeJavaObject implements Function
             return members.get(this, name, javaObject, true);
         }
         
+        Context cx = Context.getContext();
+        Scriptable scope = ScriptableObject.getTopLevelScope(start);
+        WrapFactory wrapFactory = cx.getWrapFactory();
+
         if (javaClassPropertyName.equals(name)) {
-            Context cx = Context.getContext();
-            Scriptable scope = ScriptableObject.getTopLevelScope(start);
-            return cx.getWrapFactory().wrap(cx, scope, javaObject, 
-                                            ScriptRuntime.ClassClass);
+            return wrapFactory.wrap(cx, scope, javaObject,
+                                    ScriptRuntime.ClassClass);
         }
         
         // experimental:  look for nested classes by appending $name to
         // current class' name.
         Class<?> nestedClass = findNestedClass(getClassObject(), name);
         if (nestedClass != null) {
-            NativeJavaClass nestedValue = new NativeJavaClass
-                (ScriptableObject.getTopLevelScope(this), nestedClass);
+            Scriptable nestedValue = wrapFactory.wrapJavaClass(cx, scope,
+                    nestedClass);
             nestedValue.setParentScope(this);
             return nestedValue;
         }
@@ -208,8 +210,9 @@ public class NativeJavaClass extends NativeJavaObject implements Function
                 Object v = topLevel.get("JavaAdapter", topLevel);
                 if (v != NOT_FOUND) {
                     Function f = (Function) v;
+                    // Args are (interface, js object)
                     Object[] adapterArgs = { this, args[0] };
-                    return f.construct(cx, topLevel,adapterArgs);
+                    return f.construct(cx, topLevel, adapterArgs);
                 }
             } catch (Exception ex) {
                 // fall through to error

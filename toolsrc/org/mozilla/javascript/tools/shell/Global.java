@@ -46,11 +46,17 @@ package org.mozilla.javascript.tools.shell;
 import java.io.*;
 import java.net.*;
 import java.lang.reflect.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import org.mozilla.javascript.*;
+import org.mozilla.javascript.commonjs.module.Require;
+import org.mozilla.javascript.commonjs.module.RequireBuilder;
+import org.mozilla.javascript.commonjs.module.provider.SoftCachingModuleScriptProvider;
+import org.mozilla.javascript.commonjs.module.provider.UrlModuleSourceProvider;
 import org.mozilla.javascript.tools.ToolErrorReporter;
 import org.mozilla.javascript.serialize.*;
 
@@ -151,6 +157,38 @@ public class Global extends ImporterTopLevel
         defineProperty("history", history, ScriptableObject.DONTENUM);
 
         initialized = true;
+    }
+
+    public Require installRequire(Context cx, List<String> modulePath,
+                                  boolean sandboxed) {
+        RequireBuilder rb = new RequireBuilder();
+        rb.setSandboxed(sandboxed);
+        List<URI> uris = new ArrayList<URI>();
+        if (modulePath != null) {
+            for (String path : modulePath) {
+                try {
+                    URI uri = new URI(path);
+                    if (!uri.isAbsolute()) {
+                        // call resolve("") to canonify the path
+                        uri = new File(path).toURI().resolve("");
+                    }
+                    if (!uri.toString().endsWith("/")) {
+                        // make sure URI always terminates with slash to
+                        // avoid loading from unintended locations
+                        uri = new URI(uri + "/");
+                    }
+                    uris.add(uri);
+                } catch (URISyntaxException usx) {
+                    throw new RuntimeException(usx);
+                }
+            }
+        }
+        rb.setModuleScriptProvider(
+                new SoftCachingModuleScriptProvider(
+                        new UrlModuleSourceProvider(uris, null)));
+        Require require = rb.createRequire(cx, this);
+        require.install(this);
+        return require;
     }
 
     /**
@@ -379,7 +417,8 @@ public class Global extends ImporterTopLevel
     }
     
     /**
-     * Example: doctest("js> function f() {\n  >   return 3;\n  > }\njs> f();\n3\n"); returns true
+     * Example: doctest("js> function f() {\n  >   return 3;\n  > }\njs> f();\n3\n"); returns 2
+     * (since 2 tests were executed).
      */
     public static Object doctest(Context cx, Scriptable thisObj,
                                  Object[] args, Function funObj)
@@ -396,7 +435,7 @@ public class Global extends ImporterTopLevel
                           String sourceName, int lineNumber)
     {
         doctestCanonicalizations = new HashMap<String,String>();
-        String[] lines = session.split("\n|\r");
+        String[] lines = session.split("[\n\r]+");
         String prompt0 = this.prompts[0].trim();
         String prompt1 = this.prompts[1].trim();
         int testCount = 0;
@@ -554,7 +593,8 @@ public class Global extends ImporterTopLevel
     /**
      * The sync function creates a synchronized function (in the sense
      * of a Java synchronized method) from an existing function. The
-     * new function synchronizes on the <code>this</code> object of
+     * new function synchronizes on the the second argument if it is
+     * defined, or otherwise the <code>this</code> object of
      * its invocation.
      * js> var o = { f : sync(function(x) {
      *       print("entry");
@@ -574,8 +614,12 @@ public class Global extends ImporterTopLevel
     public static Object sync(Context cx, Scriptable thisObj, Object[] args,
                               Function funObj)
     {
-        if (args.length == 1 && args[0] instanceof Function) {
-            return new Synchronizer((Function)args[0]);
+        if (args.length >= 1 && args.length <= 2 && args[0] instanceof Function) {
+            Object syncObject = null;
+            if (args.length == 2 && args[1] != Undefined.instance) {
+                syncObject = args[1];
+            }
+            return new Synchronizer((Function)args[0], syncObject);
         }
         else {
             throw reportRuntimeError("msg.sync.args");
@@ -1041,7 +1085,11 @@ public class Global extends ImporterTopLevel
                 }
             } else {
                 File f = new File(filePath);
-
+                if (!f.exists()) {
+                    throw new FileNotFoundException("File not found: " + filePath);
+                } else if (!f.canRead()) {
+                    throw new IOException("Cannot read file: " + filePath);
+                }
                 long length = f.length();
                 chunkLength = (int)length;
                 if (chunkLength != length)

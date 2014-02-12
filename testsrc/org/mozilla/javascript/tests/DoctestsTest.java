@@ -12,7 +12,6 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
-import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.drivers.TestUtils;
 import org.mozilla.javascript.tools.shell.Global;
 
@@ -86,13 +85,14 @@ public class DoctestsTest {
         try {
             cx.setOptimizationLevel(optimizationLevel);
             Global global = new Global(cx);
-            Scriptable scope = cx.newObject(global);
-            scope.setPrototype(global);
             // global.runDoctest throws an exception on any failure
-            int testsPassed = global.runDoctest(cx, scope, source, name, 1);
+            int testsPassed = global.runDoctest(cx, global, source, name, 1);
             System.out.println(name + "(" + optimizationLevel + "): " +
                     testsPassed + " passed.");
             assertTrue(testsPassed > 0);
+        } catch (Exception ex) {
+          System.out.println(name + "(" + optimizationLevel + "): FAILED due to "+ex);
+          throw ex;
         } finally {
             Context.exit();
         }  
